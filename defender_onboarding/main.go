@@ -63,7 +63,7 @@ func main(){
 	flag.StringVar(&subid,"subid","subID","Please set the subscription ID")
 	outPath := flag.String("path",".","Set output Path")
 	singleRun := flag.Bool("singleRun",false,"set false or true")
-	csvList := flag.String("csv","0","Set  CSV Files for multiple Tenants")
+	//csvList := flag.String("csv","0","Set  CSV Files for multiple Tenants")
 	flag.Parse()
 	fmt.Println(tenant,outPath,singleRun)		
 
