@@ -11,6 +11,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/joho/godotenv"
 )
 type onboardinScript struct{
 		ID          string  `json:"id"`
@@ -38,28 +41,45 @@ type tokenResponse struct {
 		AccessToken  string `json:"access_token"`
 	}
 
+var tenantID string
+var appID string
+var secret string
+var token string
+var subid string
 
-var tenantID string = ""
-var appID string = ""
-var secret string = ""
-
+func init(){
+	err :=  godotenv.Load()
+	if err != nil{
+		fmt.Println("error loading .env")
+	}
+	tenantID = os.Getenv("TENANTID")
+	appID = os.Getenv("APPID")
+	secret = os.Getenv("SECRET")
+}
 
 func main(){
 
-	tenant := flag.String("test","test","Set Tenant ID like XXX")
-	outPath := flag.String("path","path","Set output Path")
+	tenant := flag.String("tenant_id",tenantID,"Set Tenant ID like XXX")
+	flag.StringVar(&subid,"subid","subID","Please set the subscription ID")
+	outPath := flag.String("path",".","Set output Path")
 	singleRun := flag.Bool("singleRun",false,"set false or true")
+	csvList := flag.String("csv","0","Set  CSV Files for multiple Tenants")
+	flag.Parse()
+	fmt.Println(tenant,outPath,singleRun)		
 
-	fmt.Print(tenant,outPath,singleRun)		
-
-	token,err := GetToken(tenantID,appID,secret)
+	//  token move
+	token1,err := GetToken(tenantID,appID,secret)
 	if err != nil{
 		log.Fatal(err)
 	}
+	token = token1
+	//write out the package
 	winpackage := parsePackage(GetOnboardingPackage(token))
 	decodedwinpackage,_:= b64.StdEncoding.DecodeString(winpackage)
-	os.WriteFile("onboarding.cmd",[]byte(decodedwinpackage),0644)
+	os.WriteFile(tenantID+"_"+"onboarding.cmd",[]byte(decodedwinpackage),0644)
 }
+
+
 
 func GetToken(tenant string, clientID string, clientSecret string) (string, error) {
 
@@ -104,7 +124,7 @@ func GetToken(tenant string, clientID string, clientSecret string) (string, erro
 
 
 func GetOnboardingPackage(token string) []byte{
-	baseUrl := "https://management.azure.com/subscriptions/[TENANTID]/providers/Microsoft.Security/mdeOnboardings/default?api-version=2021-10-01-preview" 
+	baseUrl := fmt.Sprintf("https://management.azure.com/subscriptions/%s/providers/Microsoft.Security/mdeOnboardings/default?api-version=2021-10-01-preview",subid) 
 	bearer := "bearer " + token
 	req,err := http.NewRequest("GET",baseUrl,nil)
 	if err != nil{
@@ -130,7 +150,10 @@ func parsePackage(onpackage []byte) (string){
 	var opS packages 
 
 	if strings.Contains(string([]byte(onpackage)), "error"){	
-		return "error here"
+		fmt.Println("Error occured on the backend, wait 1min and retry")
+		fmt.Println(string([]byte(onpackage)))
+		time.Sleep(time.Second*60)
+		return parsePackage(GetOnboardingPackage(token))
 	}else{
 		err := json.Unmarshal(onpackage, &oP)
 		if err != nil{
