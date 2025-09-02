@@ -1,0 +1,108 @@
+name: Build and Release Defender Onboarding
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'defender_onboarding/**'
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'defender_onboarding/**'
+
+env:
+  GO_VERSION: '1.21'
+  PROJECT_DIR: 'defender_onboarding'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.PROJECT_DIR }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    
+    - name: Run tests
+      run: go test -v ./...
+    
+    - name: Build
+      run: go build -v -o defender-onboarding .
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Build for multiple platforms
+      run: |
+        cd ${{ env.PROJECT_DIR }}
+        
+        # List of platforms to build for
+        platforms=(
+          "linux/amd64"
+          "linux/arm64"
+          "darwin/amd64"
+          "darwin/arm64"
+          "windows/amd64"
+        )
+        
+        # Build for each platform
+        for platform in "${platforms[@]}"; do
+          GOOS=${platform%/*}
+          GOARCH=${platform#*/}
+          echo "Building for $GOOS/$GOARCH..."
+          
+          # Set output filename with appropriate extension
+          output_name="defender-onboarding-$GOOS-$GOARCH"
+          if [ "$GOOS" = "windows" ]; then
+            output_name="$output_name.exe"
+          fi
+          
+          # Build the binary
+          GOOS=$GOOS GOARCH=$GOARCH go build -v -o $output_name .
+          
+          # Verify the binary was created
+          if [ -f "$output_name" ]; then
+            echo "Successfully built $output_name"
+          else
+            echo "ERROR: Failed to build $output_name"
+            exit 1
+          fi
+        done
+        
+        # List all built files for verification
+        echo "Built files:"
+        ls -la defender-onboarding-*
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ env.PROJECT_DIR }}/defender-onboarding-*
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        body: |
+          Automated release for Defender Onboarding
+          - Built from tag ${{ github.ref_name }}
+          - Includes binaries for multiple platforms
