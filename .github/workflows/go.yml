@@ -4,24 +4,24 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'defender_onboarding/**'  # Only trigger when changes are in this directory :cite[4]
+      - 'defender_onboarding/**'
     tags:
-      - 'v*'  # Trigger on version tags
+      - 'v*'
   pull_request:
     branches: [ main ]
     paths:
-      - 'defender_onboarding/**'  # Only run PR checks for changes in this directory
+      - 'defender_onboarding/**'
 
 env:
-  GO_VERSION: '1.21'  # Specify Go version
-  PROJECT_DIR: 'defender_onboarding'  # Define project directory
+  GO_VERSION: '1.21'
+  PROJECT_DIR: 'defender_onboarding'
 
 jobs:
   test:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ${{ env.PROJECT_DIR }}  # Set default working directory :cite[5]:cite[7]
+        working-directory: ${{ env.PROJECT_DIR }}
     
     steps:
     - name: Checkout code
@@ -31,7 +31,7 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: ${{ env.GO_VERSION }}
-        cache: true  # Cache Go modules for faster builds :cite[3]
+        cache: true
     
     - name: Run tests
       run: go test -v ./...
@@ -40,11 +40,11 @@ jobs:
       run: go build -v -o defender-onboarding .
 
   release:
-    if: startsWith(github.ref, 'refs/tags/')  # Only run on tag pushes :cite[1]
+    if: startsWith(github.ref, 'refs/tags/')
     needs: test
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Required for creating releases
+      contents: write
     
     steps:
     - name: Checkout code
@@ -58,6 +58,8 @@ jobs:
     - name: Build for multiple platforms
       run: |
         cd ${{ env.PROJECT_DIR }}
+        
+        # List of platforms to build for
         platforms=(
           "linux/amd64"
           "linux/arm64"
@@ -66,16 +68,38 @@ jobs:
           "windows/amd64"
         )
         
+        # Build for each platform
         for platform in "${platforms[@]}"; do
-          GOOS=${platform%/*} GOARCH=${platform#*/} go build -o defender-onboarding-$GOOS-$GOARCH
+          GOOS=${platform%/*}
+          GOARCH=${platform#*/}
+          echo "Building for $GOOS/$GOARCH..."
+          
+          # Set output filename with appropriate extension
+          output_name="defender-onboarding-$GOOS-$GOARCH"
+          if [ "$GOOS" = "windows" ]; then
+            output_name="$output_name.exe"
+          fi
+          
+          # Build the binary
+          GOOS=$GOOS GOARCH=$GOARCH go build -v -o $output_name .
+          
+          # Verify the binary was created
+          if [ -f "$output_name" ]; then
+            echo "Successfully built $output_name"
+          else
+            echo "ERROR: Failed to build $output_name"
+            exit 1
+          fi
         done
-        mv defender-onboarding-windows-amd64 defender-onboarding-windows-amd64.exe
+        
+        # List all built files for verification
+        echo "Built files:"
+        ls -la defender-onboarding-*
     
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          defender_onboarding/defender-onboarding-*
+        files: ${{ env.PROJECT_DIR }}/defender-onboarding-*
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
         body: |
