@@ -75,15 +75,19 @@ func main() {
 	}
 	token = token1
 	readSubCsv(list)
-	if len(list) < 2 {
+	// check if list is filled
+	if len(list) < 2 || subid != "subID"{
 		//write out the package
 		winpackage := parsePackage(GetOnboardingPackage(token))
 		decodedwinpackage, _ := b64.StdEncoding.DecodeString(winpackage)
 		os.WriteFile(tenantID+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
-	} else {
-		for i := range list {
-			fmt.Print(list[i])
-		}
+	}else if len(list) > 2 ||  subid  == "subID"{
+		fmt.Println(subidlist)
+		//for i := range list {
+			//fmt.Print(list[i])
+		//}
+	}else{
+		fmt.Println("did not put in any flag")
 	}
 
 }
@@ -185,7 +189,7 @@ func readSubCsv(list string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for id := range subid {
-		subidlist = append(subidlist, subids[0][id])
+	for id := 1 ;id <= len(subids);id++ {
+		subidlist = append(subidlist, subids[id-1][0])
 	}
 }
