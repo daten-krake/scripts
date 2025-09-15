@@ -65,7 +65,7 @@ func main() {
 
 	flag.StringVar(&subid, "subid", "subID", "Please set the subscription ID")
 	//outPath := flag.String("path",".","Set output Path")
-	flag.StringVar(&list, "csv", "0", "Set  CSV Files for multiple Tenants")
+	flag.StringVar(&list, "csv", "/home/uwe/scripts/defender_onboarding/temp.dat", "Set  CSV Files for multiple Tenants")
 	flag.Parse()
 
 	//  token move
@@ -78,14 +78,16 @@ func main() {
 	// check if list is filled
 	if len(list) < 2 || subid != "subID"{
 		//write out the package
-		winpackage := parsePackage(GetOnboardingPackage(token))
+		winpackage := parsePackage(GetOnboardingPackage(token,subid),subid)
 		decodedwinpackage, _ := b64.StdEncoding.DecodeString(winpackage)
-		os.WriteFile(tenantID+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
-	}else if len(list) > 2 ||  subid  == "subID"{
-		fmt.Println(subidlist)
-		//for i := range list {
-			//fmt.Print(list[i])
-		//}
+		os.WriteFile(subid+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
+	}else if len(list) >= 2 ||  subid  == "subID"{
+		for i := range subidlist {
+			fmt.Println(subidlist[i])
+			winpackage := parsePackage(GetOnboardingPackage(token,subidlist[i]),subidlist[i])
+			decodedwinpackage, _ := b64.StdEncoding.DecodeString(winpackage)
+			os.WriteFile(subidlist[i]+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
+		}
 	}else{
 		fmt.Println("did not put in any flag")
 	}
@@ -133,8 +135,8 @@ func GetToken(tenant string, clientID string, clientSecret string) (string, erro
 	return tokenResponse.AccessToken, nil
 }
 
-func GetOnboardingPackage(token string) []byte {
-	baseUrl := fmt.Sprintf("https://management.azure.com/subscriptions/%s/providers/Microsoft.Security/mdeOnboardings/default?api-version=2021-10-01-preview", subid)
+func GetOnboardingPackage(token string, id string) []byte {
+	baseUrl := fmt.Sprintf("https://management.azure.com/subscriptions/%s/providers/Microsoft.Security/mdeOnboardings/default?api-version=2021-10-01-preview", id)
 	bearer := "bearer " + token
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
@@ -154,7 +156,7 @@ func GetOnboardingPackage(token string) []byte {
 	return []byte(body)
 }
 
-func parsePackage(onpackage []byte) string {
+func parsePackage(onpackage []byte,id string) string {
 
 	var oP onboardinScript
 	var opS packages
@@ -163,7 +165,7 @@ func parsePackage(onpackage []byte) string {
 		fmt.Println("Error occured on the backend, wait 1min and retry")
 		fmt.Println(string([]byte(onpackage)))
 		time.Sleep(time.Second * 60)
-		return parsePackage(GetOnboardingPackage(token))
+		return parsePackage(GetOnboardingPackage(token,id),id)
 	} else {
 		err := json.Unmarshal(onpackage, &oP)
 		if err != nil {
