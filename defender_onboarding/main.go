@@ -65,7 +65,7 @@ func main() {
 
 	flag.StringVar(&subid, "subid", "subID", "Please set the subscription ID")
 	//outPath := flag.String("path",".","Set output Path")
-	flag.StringVar(&list, "csv", "/home/uwe/scripts/defender_onboarding/temp.dat", "Set  CSV Files for multiple Tenants")
+	flag.StringVar(&list, "csv", "", "Set  CSV Files for multiple Tenants")
 	flag.Parse()
 
 	//  token move
@@ -74,14 +74,14 @@ func main() {
 		log.Fatal(err)
 	}
 	token = token1
-	readSubCsv(list)
 	// check if list is filled
-	if len(list) < 2 || subid != "subID"{
+	if len(list) < 1 && subid != "subID"{
 		//write out the package
 		winpackage := parsePackage(GetOnboardingPackage(token,subid),subid)
 		decodedwinpackage, _ := b64.StdEncoding.DecodeString(winpackage)
 		os.WriteFile(subid+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
-	}else if len(list) >= 2 ||  subid  == "subID"{
+	}else if len(list) >= 2 &&  subid  == "subID"{
+		readSubCsv(list)
 		for i := range subidlist {
 			fmt.Println(subidlist[i])
 			winpackage := parsePackage(GetOnboardingPackage(token,subidlist[i]),subidlist[i])
@@ -180,7 +180,7 @@ func parsePackage(onpackage []byte,id string) string {
 
 }
 
-func readSubCsv(list string) {
+func readSubCsv(list string) error {
 	file, err := os.Open(list)
 	if err != nil {
 		log.Fatal(err)
@@ -194,4 +194,5 @@ func readSubCsv(list string) {
 	for id := 1 ;id <= len(subids);id++ {
 		subidlist = append(subidlist, subids[id-1][0])
 	}
+	return nil
 }
