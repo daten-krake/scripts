@@ -43,6 +43,17 @@ type tokenResponse struct {
 	AccessToken  string `json:"access_token"`
 }
 
+type errorResponse struct{
+	ID                  string              `json:"id"`
+	AuthSrouce          string              `json:"authorizationSource"`
+	ManagedbyTenants    json.RawMessage            `json:"managedByTenants"`
+  SubID               string              `json:"subscriptionId"`
+	Tenantid            string              `json:"tenantId"`
+  SubName             string              `json:"displayName"`
+  State               string              `json:"state"`
+  SubPolicies         json.RawMessage     `json:"subscriptionPolicies"` 
+}
+
 var tenantID string
 var appID string
 var secret string
@@ -50,6 +61,7 @@ var token string
 var subid string
 var subidlist []string
 var list string
+var errorcount int 
 
 func init() {
 	err := godotenv.Load()
@@ -64,7 +76,6 @@ func init() {
 func main() {
 
 	flag.StringVar(&subid, "subid", "subID", "Please set the subscription ID")
-	//outPath := flag.String("path",".","Set output Path")
 	flag.StringVar(&list, "csv", "", "Set  CSV Files for multiple Tenants")
 	flag.Parse()
 
@@ -78,15 +89,24 @@ func main() {
 	if len(list) < 1 && subid != "subID"{
 		//write out the package
 		winpackage := parsePackage(GetOnboardingPackage(token,subid),subid)
-		decodedwinpackage, _ := b64.StdEncoding.DecodeString(winpackage)
-		os.WriteFile(subid+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
+		if winpackage  != "err"{
+			decodedwinpackage, _ := b64.StdEncoding.DecodeString(winpackage)
+			os.WriteFile(subid+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
+		}else{
+			fmt.Printf("error at tenant: %s\n", GetTenantID(token,subid))
+		}
 	}else if len(list) >= 2 &&  subid  == "subID"{
 		readSubCsv(list)
 		for i := range subidlist {
 			fmt.Println(subidlist[i])
 			winpackage := parsePackage(GetOnboardingPackage(token,subidlist[i]),subidlist[i])
+			if  winpackage != "err"{
 			decodedwinpackage, _ := b64.StdEncoding.DecodeString(winpackage)
-			os.WriteFile(subidlist[i]+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
+			t := fmt.Sprintf("%s",time.Now())
+			os.WriteFile(subidlist[i]+"_"+t+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
+			}else{
+				fmt.Println("error at subid")
+			}
 		}
 	}else{
 		fmt.Println("did not put in any flag")
@@ -162,9 +182,14 @@ func parsePackage(onpackage []byte,id string) string {
 	var opS packages
 
 	if strings.Contains(string([]byte(onpackage)), "error") {
+		if errorcount == 5{
+			goto tenanterror
+		}
 		fmt.Println("Error occured on the backend, wait 1min and retry")
+		fmt.Printf("errcrcoung: %d\n",errorcount)
 		fmt.Println(string([]byte(onpackage)))
-		time.Sleep(time.Second * 60)
+		time.Sleep(time.Second * 10)
+		errorcount += 1
 		return parsePackage(GetOnboardingPackage(token,id),id)
 	} else {
 		err := json.Unmarshal(onpackage, &oP)
@@ -176,8 +201,12 @@ func parsePackage(onpackage []byte,id string) string {
 			log.Fatal(pack)
 		}
 	}
-	return string(opS.Windows)
-
+ return string(opS.Windows)
+	tenanterror:{
+		errorcount = 0
+		fmt.Printf("some  other error for %s \n",id)	
+		return "err"
+	}
 }
 
 func readSubCsv(list string) error {
@@ -195,4 +224,33 @@ func readSubCsv(list string) error {
 		subidlist = append(subidlist, subids[id-1][0])
 	}
 	return nil
+}
+
+
+func GetTenantID(token string, id string) string {
+	
+	var eR errorResponse 
+	baseUrl := fmt.Sprintf("https://management.azure.com/subscriptions/%s?api-version=2025-04-01", id)
+	bearer := "bearer " + token
+	req, err := http.NewRequest("GET", baseUrl, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	req.Header.Add("Authorization", bearer)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = json.Unmarshal(body, &eR)
+		if err != nil {
+			log.Fatal(err)
+		}	
+	return eR.Tenantid
 }
