@@ -5,13 +5,11 @@ This little tool will help you aquire the onboarding Script in scale if you are 
 ### Requirements
 - your SPN need Security Reader Permission  on the Subscriptions
 - best case you can do this with Lighthouse
+- you need Defender for Cloud activated and you need a MDE Tenant initalized
+    - if the MDE Tenant or some other error will occure the tool will write out the link to initalize MDE
 
 ### Usage
 WORK IN PROGRESS
-  -path string                                                                                                                                                                                                                                                                │
-        Set output Path (default ".")                                                                                                                                                                                                                                         │
-  -singleRun                                                                                                                                                                                                                                                                  │
-        set false or true                                                                                                                                                                                                                                                     │
   -subid string                                                                                                                                                                                                                                                               │
         Please set the subscription ID (default "subID")                                                                                                                                                                                                                      │
   -tenant_id string                                                                                                                                                                                                                                                           │

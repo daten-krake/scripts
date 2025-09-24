@@ -46,7 +46,7 @@ type tokenResponse struct {
 type errorResponse struct{
 	ID                  string              `json:"id"`
 	AuthSrouce          string              `json:"authorizationSource"`
-	ManagedbyTenants    json.RawMessage            `json:"managedByTenants"`
+	ManagedbyTenants    json.RawMessage     `json:"managedByTenants"`
   SubID               string              `json:"subscriptionId"`
 	Tenantid            string              `json:"tenantId"`
   SubName             string              `json:"displayName"`
@@ -75,6 +75,7 @@ func init() {
 
 func main() {
 
+	err := os.WriteFile("error_list.csv",[]byte(""),0644)
 	flag.StringVar(&subid, "subid", "subID", "Please set the subscription ID")
 	flag.StringVar(&list, "csv", "", "Set  CSV Files for multiple Tenants")
 	flag.Parse()
@@ -94,6 +95,8 @@ func main() {
 			os.WriteFile(subid+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
 		}else{
 			fmt.Printf("error at tenant: %s\n", GetTenantID(token,subid))
+			fmt.Printf("if MDE is not initialize go here: https://security.microsoft.com/onboard?redirectTo=machines&tid=%s\n",GetTenantID(token,subid))
+			fmt.Println("please check if MDC is enabled aswell")
 		}
 	}else if len(list) >= 2 &&  subid  == "subID"{
 		readSubCsv(list)
@@ -105,7 +108,8 @@ func main() {
 			t := fmt.Sprintf("%s",time.Now())
 			os.WriteFile(subidlist[i]+"_"+t+"_"+"onboarding.cmd", []byte(decodedwinpackage), 0644)
 			}else{
-				fmt.Println("error at subid")
+				fmt.Printf("error at tenant: %s\n", GetTenantID(token,subid))
+				add(GetTenantID(token,subid),"error_list.csv")
 			}
 		}
 	}else{
@@ -253,4 +257,27 @@ func GetTenantID(token string, id string) string {
 			log.Fatal(err)
 		}	
 	return eR.Tenantid
+}
+
+
+func add(tenant string,file string){
+		csvWriter := csv.NewWriter(fileread(file))
+		defer fileread(file).Close()
+		err := csvWriter.Write([]string{tenant})
+		if err != nil {
+			log.Fatal(err)
+		}
+		csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+			log.Fatal(err)
+	}  
+}
+
+func fileread(fileName string) *os.File{
+	filereader,err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND,0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+	return filereader
 }
