@@ -13,4 +13,4 @@ WORK IN PROGRESS
   -subid string                                                                                                                                                                                                                                                               │
         Please set the subscription ID (default "subID")                                                                                                                                                                                                                      │
   -tenant_id string                                                                                                                                                                                                                                                           │
-        Set Tenant ID like XXX (default "e0c0089e-139c-46e7-a82f-231cd621849e")  
+        Set Tenant ID like XXX (default "XXXXXXXXXXXXXXXXXXXXXXXXX")  
