@@ -6,6 +6,13 @@ __pycache__/
 # C extensions
 *.so
 *.env
+
+# Go binaries
+defender-urbac
+defender_urbac
+defender_urbac/defender-urbac
+defender_urbac/defender_urbac
+
 # Distribution / packaging
 .Python
 build/

@@ -1,0 +1,136 @@
+name: Defender URBAC Role Deployment
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'defender_urbac/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'defender_urbac/**'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (preview only)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  GO_VERSION: '1.21'
+  PROJECT_DIR: 'defender_urbac'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.PROJECT_DIR }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Build
+      run: go build -v -o defender-urbac .
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: defender-urbac
+        path: ${{ env.PROJECT_DIR }}/defender-urbac
+
+  # ── PR: dry-run to preview changes ─────────────────────────────────────────
+
+  dry-run:
+    if: github.event_name == 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download binary
+      uses: actions/download-artifact@v4
+      with:
+        name: defender-urbac
+
+    - name: Azure Login (OIDC)
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        allow-no-subscriptions: true
+
+    - name: Deploy (dry-run)
+      run: |
+        chmod +x ./defender-urbac
+        ./defender-urbac -federated -dry-run -roles-dir ./${{ env.PROJECT_DIR }}/roles
+
+  # ── Main branch: deploy roles ──────────────────────────────────────────────
+
+  deploy:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download binary
+      uses: actions/download-artifact@v4
+      with:
+        name: defender-urbac
+
+    - name: Azure Login (OIDC)
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        allow-no-subscriptions: true
+
+    - name: Deploy roles
+      run: |
+        chmod +x ./defender-urbac
+        ./defender-urbac -federated -roles-dir ./${{ env.PROJECT_DIR }}/roles
+
+  # ── Manual dispatch: dry-run mode ──────────────────────────────────────────
+
+  dispatch-dry-run:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download binary
+      uses: actions/download-artifact@v4
+      with:
+        name: defender-urbac
+
+    - name: Azure Login (OIDC)
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        allow-no-subscriptions: true
+
+    - name: Deploy (dry-run)
+      run: |
+        chmod +x ./defender-urbac
+        ./defender-urbac -federated -dry-run -roles-dir ./${{ env.PROJECT_DIR }}/roles
